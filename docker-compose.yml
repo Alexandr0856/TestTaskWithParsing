@@ -30,6 +30,7 @@ services:
       - ./src:/app
     env_file:
       - environments/.postgres.env
+      - environments/.source.env
     depends_on:
       postgres:
         condition: service_healthy

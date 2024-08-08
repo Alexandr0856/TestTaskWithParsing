@@ -14,3 +14,8 @@ class PostgresEnv:
     @classmethod
     def get_conn_string(cls):
         return f"postgresql://{cls.user}:{cls.password}@{cls.host}:{cls.port}/{cls.db}"
+
+
+@dataclass
+class SourceEnv:
+    name: str = os.environ.get("SOURCE_NAME", "wiki")

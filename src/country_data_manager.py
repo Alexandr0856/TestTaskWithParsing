@@ -2,18 +2,20 @@ import httpx
 
 from bs4 import BeautifulSoup
 
+from env import SourceEnv
+from sources import SourcesUrl
 from postgres import Postgres
 
 
 class CountryDataManager:
-    wiki_url = "https://en.wikipedia.org/w/index.php?title=List_of_countries_by_population_(United_Nations)"
-
     def __init__(self):
         self.pg = Postgres()
+        self.source = SourceEnv.name
 
-    async def _parce_countries_from_wiki(self) -> list:
+    @staticmethod
+    async def _parce_countries_from_wiki() -> list:
         async with httpx.AsyncClient() as client:
-            response = await client.get(self.wiki_url)
+            response = await client.get(SourcesUrl.wiki_url)
 
         if response.status_code == 200:
             soup = BeautifulSoup(response.content, 'html.parser')
@@ -35,12 +37,47 @@ class CountryDataManager:
                     country_region_pairs.append((country, population, region))
 
             return country_region_pairs
-        else:
-            print(f"Failed to retrieve the page. Status code: {response.status_code}")
-            return []
+
+        print(f"Failed to retrieve the page. Status code: {response.status_code}")
+        return []
+
+    @staticmethod
+    async def _parce_countries_from_statisticstimes() -> list:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(SourcesUrl.statisticstimes_url)
+
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.content, 'html.parser')
+
+            table = soup.find('table', {'id': 'table_id'})
+
+            country_data = []
+
+            for row in table.find_all('tr')[1:]:  # Skip the header row
+                columns = row.find_all('td')
+                if len(columns) >= 4:
+                    country = columns[0].text.strip()
+                    population = int(columns[3].text.replace(',', ''))
+                    region = columns[8].text.strip()
+                    country_data.append((country, population, region))
+
+            return country_data
+
+        print(f"Failed to retrieve the page. Status code: {response.status_code}")
+        return []
 
     async def update_countries(self):
-        countries = await self._parce_countries_from_wiki()
+        if self.source == "statisticstimes":
+            countries = await self._parce_countries_from_statisticstimes()
+        elif self.source == "wiki":
+            countries = await self._parce_countries_from_wiki()
+        else:
+            print(
+                "Unknown source, please check the env file. "
+                "SOURCE_NAME should be either 'statisticstimes' or 'wiki'"
+            )
+            return
+
         for country, population, region in countries:
             self.pg.insert_country(country, population, region)
         self.pg.commit()
@@ -58,3 +95,11 @@ class CountryDataManager:
                 f"\t- Biggest Country: {biggest_country} ({biggest_population:,}) \n"
                 f"\t- Smallest Country: {smallest_county} ({smallest_population:,})\n"
                 )
+
+
+if __name__ == "__main__":
+    import asyncio
+
+    cdm = CountryDataManager()
+    res = asyncio.run(cdm._parce_countries_from_statisticstimes())
+    print(res)
