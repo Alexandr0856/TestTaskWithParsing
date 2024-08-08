@@ -1,4 +1,4 @@
-import requests
+import httpx
 
 from bs4 import BeautifulSoup
 
@@ -11,8 +11,9 @@ class CountryDataManager:
     def __init__(self):
         self.pg = Postgres()
 
-    def _parce_countries_from_wiki(self) -> list:
-        response = requests.get(self.wiki_url)
+    async def _parce_countries_from_wiki(self) -> list:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(self.wiki_url)
 
         if response.status_code == 200:
             soup = BeautifulSoup(response.content, 'html.parser')
@@ -38,8 +39,8 @@ class CountryDataManager:
             print(f"Failed to retrieve the page. Status code: {response.status_code}")
             return []
 
-    def update_countries(self):
-        countries = self._parce_countries_from_wiki()
+    async def update_countries(self):
+        countries = await self._parce_countries_from_wiki()
         for country, population, region in countries:
             self.pg.insert_country(country, population, region)
         self.pg.commit()

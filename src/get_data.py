@@ -1,3 +1,5 @@
+import asyncio
+
 from country_data_manager import CountryDataManager
 
 
@@ -7,4 +9,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
