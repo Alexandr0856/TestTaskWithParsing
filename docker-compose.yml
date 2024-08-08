@@ -1,0 +1,58 @@
+version: '3.3'
+
+services:
+  postgres:
+    image: postgres:latest
+    restart: always
+    ports:
+      - "5432:5432"
+    networks:
+      - common_network
+    env_file:
+      - environments/.postgres.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/script:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U myuser" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  get_data:
+    container_name: get_data
+    build:
+      context: .
+      dockerfile: get_data/Dockerfile
+    networks:
+      - common_network
+    volumes:
+      - ./src:/app
+    env_file:
+      - environments/.postgres.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  print_data:
+    container_name: print_data
+    build:
+      context: .
+      dockerfile: print_data/Dockerfile
+    networks:
+      - common_network
+    volumes:
+      - ./src:/app
+    env_file:
+      - environments/.postgres.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+
+volumes:
+  postgres_data:
+
+networks:
+  common_network:
+    driver: bridge
